@@ -192,7 +192,13 @@ if ticker:
             # Plot Price, Moving Averages, MACD, RSI, Bollinger Bands, Price Breakouts, Buy/Sell Signals
             ###############################
  
-            # --- Plot MA crossover signals --- #
+            # --- Plot Stock Closing Price --- #
+            fig_close = go.Figure()
+            fig_close.add_trace(go.Scatter(x=data['Date'], y=data['Close'], mode='lines', name='Close Price'))
+            st.subheader("Stock Closing Price")
+            st.plotly_chart(fig_close, use_container_width=True)
+
+            # --- Plot MA crossover signals and breakouts--- #
             fig_ma = go.Figure()
             fig_ma.add_trace(go.Scatter(x=data['Date'], y=data['Close'], mode='lines', name='Close Price'))
             if 'SMA_50' in data:
@@ -204,18 +210,23 @@ if ticker:
             plot_signals(fig_ma, [('buy', d) for s, d in ma_signals if s=='buy'], data, 'arrow-up', 'green', 'MA Buy')
             # Plot Sell signals
             plot_signals(fig_ma, [('sell', d) for s, d in ma_signals if s=='sell'], data, 'arrow-down', 'red', 'MA Sell')
-            st.subheader("Price & MA Crossovers")
+            # Plot Breakout Buy signals
+            plot_signals(fig_ma, [('buy', d) for s, d in break_signals if s=='buy'], data, 'arrow-up', 'green', 'Breakout (20) Buy')
+            # Plot Breakout Sell signals
+            plot_signals(fig_ma, [('sell', d) for s, d in break_signals if s=='sell'], data, 'arrow-down', 'red', 'Breakout (20) Sell')
+            st.subheader("Price, MA Crossovers, Breakouts (20 Day)")
             st.plotly_chart(fig_ma, use_container_width=True)
 
 
             # --- Plot MACD --- #
             fig_macd = go.Figure()
+            fig_ma.add_trace(go.Scatter(x=data['Date'], y=data['Close'], mode='lines', name='Close Price'))
             fig_macd.add_trace(go.Scatter(x=data['Date'], y=data['MACD'], mode='lines', name='MACD'))
             fig_macd.add_trace(go.Scatter(x=data['Date'], y=data['Signal_Line'], mode='lines', name='Signal Line'))
             #Plots MACD Signals
             plot_signals(fig_macd, [('buy', d) for s, d in macd_signals if s=='buy'], data, 'arrow-up', 'green', 'MACD Buy')
             plot_signals(fig_macd, [('sell', d) for s, d in macd_signals if s=='sell'], data, 'arrow-down', 'red', 'MACD Sell')
-            st.subheader("MACD")
+            st.subheader("Moving Average Convergence Divergence MACD")
             st.plotly_chart(fig_macd, use_container_width=True)
 
 
@@ -228,7 +239,7 @@ if ticker:
             # Plot RSI signals
             plot_signals(fig_rsi, [('buy', d) for s, d in rsi_signals if s=='buy'], data, 'circle', 'green', 'RSI Buy')
             plot_signals(fig_rsi, [('sell', d) for s, d in rsi_signals if s=='sell'], data, 'circle', 'red', 'RSI Sell')
-            st.subheader("RSI")
+            st.subheader("Relative Strength Index (RSI)")
             st.plotly_chart(fig_rsi, use_container_width=True)
 
 
@@ -247,9 +258,26 @@ if ticker:
             # Plot ATR
             fig_atr = go.Figure()
             fig_atr.add_trace(go.Scatter(x=data['Date'], y=data['ATR_14'], mode='lines', name='ATR'))
+            st.subheader("Average True Range (ATR)")
+            st.plotly_chart(fig_br, use_container_width=True)
 
+            # Plot Percent Off High
+            fig_atr = go.Figure()
+            fig_atr.add_trace(go.Scatter(x=data['Date'], y=data['Percent_Off_High'], mode='lines', name='Percent Off High'))
+            st.subheader("Percent Off 52 Week High")
+            st.plotly_chart(fig_br, use_container_width=True)
 
-
+            # --- Plot PCT Change --- #
+            fig_ma = go.Figure()
+            if 'Pct_Change_3D' in data:
+                fig_ma.add_trace(go.Scatter(x=data['Date'], y=data['Pct_Change_3D'], mode='lines', name='Pct Change 3 Days'))
+            if 'Pct_Change_5D' in data:
+                fig_ma.add_trace(go.Scatter(x=data['Date'], y=data['Pct_Change_5D'], mode='lines', name='Pct Change 5 Days'))
+            if 'Pct_Change_10D' in data:
+                fig_ma.add_trace(go.Scatter(x=data['Date'], y=data['Pct_Change_10D'], mode='lines', name='Pct Change 10 Days'))
+            st.subheader("Percent Change In Price Over 3, 5, and 10 Days")
+            st.plotly_chart(fig_ma, use_container_width=True)
+            
 
             ###############################
             # Download Data Button
