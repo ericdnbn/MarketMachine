@@ -167,14 +167,16 @@ def generate_breakout_signals(df, window=20):
     return break_signals
 
 
+# --- Main App ---
 st.title("Stock Market Dashboard with Indicators & Signals")
 
-ticker = st.text_input("Enter stock ticker:", value='AAPL')
-period = st.selectbox("Select period", ['1mo', '3mo', '6mo', '1y', '2y', '5y'], index=3)
+# Input ticker and wait for fetch button
+ticker_input = st.text_input("Enter stock ticker:", value='')  # no default
+period = st.selectbox("Select period", ['1y', '2y', '5y'], index=0)
 
-if ticker:
-    # Fetch stock data
-    data = get_stock_data(ticker, period)
+if st.button("Fetch Data") and ticker_input.strip():
+    # Fetch data
+    data = get_stock_data(ticker_input.strip(), period)
     if data is None:
         st.error("Failed to fetch data. Check the ticker symbol.")
     else:
@@ -183,20 +185,14 @@ if ticker:
         if data is None:
             st.error("Error processing data.")
         else:
-            # Generate buy and sell signals based on MACD crossover
+            # Generate signals
             macd_signals = generate_macd_signals(data)
-            # Generate buy and sell signals based on RSI oversold or overbought
             rsi_signals = generate_rsi_signals(data)
-            # Generate buy and sell signals based on MA crossover
             ma_signals = generate_ma_crossover_signals(data)
-            # Generate buy and sell signals based on Bollinger reversal 
             br_signals = generate_bollinger_reversal_signals(data)
-            # Generate buy and sell signals based on price breakout
             break_signals = generate_breakout_signals(data)
 
-            # Utility to plot signals based on metric
             def plot_signals(fig, signals, data, marker_symbol, color, label):
-                """Plot signals filtered by type."""
                 if not signals:
                     return
                 dates = [d for s, d in signals]
@@ -211,107 +207,93 @@ if ticker:
                     name=label
                 ))
 
-
-            ###############################
-            # Plot Price, Moving Averages, MACD, RSI, Bollinger Bands, Price Breakouts, Buy/Sell Signals
-            ###############################
- 
-            # --- Plot Stock Closing Price --- #
+            # --- Plot Closing Price --- #
             fig_close = go.Figure()
             fig_close.add_trace(go.Scatter(x=data['Date'], y=data['Close'], mode='lines', name='Close Price'))
             st.subheader("Stock Closing Price")
             st.plotly_chart(fig_close, use_container_width=True)
 
-            # --- Plot MA crossover signals and breakouts--- #
+            # --- Plot Price, MA Crossover, Breakouts --- #
             fig_ma = go.Figure()
             fig_ma.add_trace(go.Scatter(x=data['Date'], y=data['Close'], mode='lines', name='Close Price'))
             if 'SMA_50' in data:
                 fig_ma.add_trace(go.Scatter(x=data['Date'], y=data['SMA_50'], mode='lines', name='SMA 50'))
             if 'SMA_200' in data:
                 fig_ma.add_trace(go.Scatter(x=data['Date'], y=data['SMA_200'], mode='lines', name='SMA 200'))
-            # Example for MA signals
-            # Plot Buy signals
+            # Plot MA crossover signals
             plot_signals(fig_ma, [('buy', d) for s, d in ma_signals if s=='buy'], data, 'arrow-up', 'green', 'MA Buy')
-            # Plot Sell signals
             plot_signals(fig_ma, [('sell', d) for s, d in ma_signals if s=='sell'], data, 'arrow-down', 'red', 'MA Sell')
-            # Plot Breakout Buy signals
-            plot_signals(fig_ma, [('buy', d) for s, d in break_signals if s=='buy'], data, 'arrow-up', 'green', 'Breakout (20) Buy')
-            # Plot Breakout Sell signals
-            plot_signals(fig_ma, [('sell', d) for s, d in break_signals if s=='sell'], data, 'arrow-down', 'red', 'Breakout (20) Sell')
-            st.subheader("Price, MA Crossovers, Breakouts (20 Day)")
+            # Plot breakout signals
+            plot_signals(fig_ma, [('buy', d) for s, d in break_signals if s=='buy'], data, 'arrow-up', 'green', 'Breakout Buy')
+            plot_signals(fig_ma, [('sell', d) for s, d in break_signals if s=='sell'], data, 'arrow-down', 'red', 'Breakout Sell')
+            st.subheader("Price, MA Crossovers & Breakouts (20 Day)")
             st.plotly_chart(fig_ma, use_container_width=True)
-
 
             # --- Plot MACD --- #
             fig_macd = go.Figure()
-            fig_ma.add_trace(go.Scatter(x=data['Date'], y=data['Close'], mode='lines', name='Close Price'))
             fig_macd.add_trace(go.Scatter(x=data['Date'], y=data['MACD'], mode='lines', name='MACD'))
             fig_macd.add_trace(go.Scatter(x=data['Date'], y=data['Signal_Line'], mode='lines', name='Signal Line'))
-            #Plots MACD Signals
             plot_signals(fig_macd, [('buy', d) for s, d in macd_signals if s=='buy'], data, 'arrow-up', 'green', 'MACD Buy')
             plot_signals(fig_macd, [('sell', d) for s, d in macd_signals if s=='sell'], data, 'arrow-down', 'red', 'MACD Sell')
-            st.subheader("Moving Average Convergence Divergence MACD")
+            st.subheader("MACD")
             st.plotly_chart(fig_macd, use_container_width=True)
 
-
             # --- Plot RSI --- #
+            st.subheader("Relative Strength Index (RSI)")
             fig_rsi = go.Figure()
             fig_rsi.add_trace(go.Scatter(x=data['Date'], y=data['RSI_14'], mode='lines', name='RSI'))
-            # Add overbought/oversold lines
+            # Add overbought/oversold threshold lines
             fig_rsi.add_shape(type='line', x0=data['Date'].iloc[0], x1=data['Date'].iloc[-1], y0=30, y1=30, line=dict(color='gray', dash='dash'))
             fig_rsi.add_shape(type='line', x0=data['Date'].iloc[0], x1=data['Date'].iloc[-1], y0=70, y1=70, line=dict(color='gray', dash='dash'))
-            # Plot RSI signals
+            # Plot RSI buy signals (oversold crossing above 30)
             plot_signals(fig_rsi, [('buy', d) for s, d in rsi_signals if s=='buy'], data, 'circle', 'green', 'RSI Buy')
+            # Plot RSI sell signals (overbought crossing below 70)
             plot_signals(fig_rsi, [('sell', d) for s, d in rsi_signals if s=='sell'], data, 'circle', 'red', 'RSI Sell')
-            st.subheader("Relative Strength Index (RSI)")
             st.plotly_chart(fig_rsi, use_container_width=True)
 
-
-            # --- Plot Bollinger Bands with Reversal Signals --- #
-            fig_br = go.Figure()
-            fig_br.add_trace(go.Scatter(x=data['Date'], y=data['Close'], mode='lines', name='Close'))
-            fig_br.add_trace(go.Scatter(x=data['Date'], y=data['Bollinger_Middle'], mode='lines', name='Middle Band'))
-            fig_br.add_trace(go.Scatter(x=data['Date'], y=data['Upper_Band'], mode='lines', name='Upper Band'))
-            fig_br.add_trace(go.Scatter(x=data['Date'], y=data['Lower_Band'], mode='lines', name='Lower Band'))
-            # Plot buy and sell signals on Bollinger Bands
-            plot_signals(fig_br, [('buy', d) for s, d in br_signals if s=='buy'], data, 'triangle-up', 'blue', 'BB Buy')
-            plot_signals(fig_br, [('sell', d) for s, d in br_signals if s=='sell'], data, 'triangle-down', 'orange', 'BB Sell')
+            # --- Plot Bollinger Bands & Reversal Signals --- #
             st.subheader("Bollinger Bands & Reversal Signals")
-            st.plotly_chart(fig_br, use_container_width=True)
+            fig_bband = go.Figure()
+            fig_bband.add_trace(go.Scatter(x=data['Date'], y=data['Close'], mode='lines', name='Close'))
+            fig_bband.add_trace(go.Scatter(x=data['Date'], y=data['Bollinger_Middle'], mode='lines', name='Middle Band'))
+            fig_bband.add_trace(go.Scatter(x=data['Date'], y=data['Upper_Band'], mode='lines', name='Upper Band'))
+            fig_bband.add_trace(go.Scatter(x=data['Date'], y=data['Lower_Band'], mode='lines', name='Lower Band'))
+            # Plot buy signals at or below lower band
+            plot_signals(fig_bband, [('buy', d) for s, d in br_signals if s=='buy'], data, 'triangle-up', 'blue', 'BB Buy')
+            # Plot sell signals at or above upper band
+            plot_signals(fig_bband, [('sell', d) for s, d in br_signals if s=='sell'], data, 'triangle-down', 'orange', 'BB Sell')
+            st.subheader("Bollinger Bands & Reversal Signals")
+            st.plotly_chart(fig_bband, use_container_width=True)
 
-            # Plot ATR
+            # --- Plot ATR --- #
+            st.subheader("Average True Range (ATR)")
             fig_atr = go.Figure()
             fig_atr.add_trace(go.Scatter(x=data['Date'], y=data['ATR_14'], mode='lines', name='ATR'))
-            st.subheader("Average True Range (ATR)")
-            st.plotly_chart(fig_br, use_container_width=True)
+            st.plotly_chart(fig_atr, use_container_width=True)
 
-            # Plot Percent Off High
-            fig_atr = go.Figure()
-            fig_atr.add_trace(go.Scatter(x=data['Date'], y=data['Percent_Off_High'], mode='lines', name='Percent Off High'))
+            # --- Plot Percent Off High --- #           
             st.subheader("Percent Off 52 Week High")
-            st.plotly_chart(fig_br, use_container_width=True)
+            fig_off_high = go.Figure()
+            fig_off_high.add_trace(go.Scatter(x=data['Date'], y=data['Percent_Off_High'], mode='lines', name='% Off High'))
+            st.plotly_chart(fig_off_high, use_container_width=True)
 
-            # --- Plot PCT Change --- #
-            fig_ma = go.Figure()
+            # --- Plot Percent Change over 3, 5, 10 Days --- #
+            st.subheader("Percent Change Over 3, 5, 10 Days")
+            fig_pct_change = go.Figure()
             if 'Pct_Change_3D' in data:
-                fig_ma.add_trace(go.Scatter(x=data['Date'], y=data['Pct_Change_3D'], mode='lines', name='Pct Change 3 Days'))
+                fig_pct_change.add_trace(go.Scatter(x=data['Date'], y=data['Pct_Change_3D'], mode='lines', name='Pct Change 3D'))
             if 'Pct_Change_5D' in data:
-                fig_ma.add_trace(go.Scatter(x=data['Date'], y=data['Pct_Change_5D'], mode='lines', name='Pct Change 5 Days'))
+                fig_pct_change.add_trace(go.Scatter(x=data['Date'], y=data['Pct_Change_5D'], mode='lines', name='Pct Change 5D'))
             if 'Pct_Change_10D' in data:
-                fig_ma.add_trace(go.Scatter(x=data['Date'], y=data['Pct_Change_10D'], mode='lines', name='Pct Change 10 Days'))
-            st.subheader("Percent Change In Price Over 3, 5, and 10 Days")
-            st.plotly_chart(fig_ma, use_container_width=True)
-            
+                fig_pct_change.add_trace(go.Scatter(x=data['Date'], y=data['Pct_Change_10D'], mode='lines', name='Pct Change 10D'))
+            st.plotly_chart(fig_pct_change, use_container_width=True)
 
-            ###############################
-            # Download Data Button
-            ###############################
-            # After all plots and tables
+            # --- Download Data --- #
             st.markdown("---")
             st.subheader("Download Data")
             st.download_button(
-            label="Download Data as CSV",
-            data=data.to_csv(index=False),
-            file_name=f"{ticker}_data.csv",
-            mime="text/csv"
+                label="Download Data as CSV",
+                data=data.to_csv(index=False),
+                file_name=f"{ticker_input}_data.csv",
+                mime="text/csv"
             )
