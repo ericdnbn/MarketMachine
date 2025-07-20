@@ -11,6 +11,15 @@ def get_stock_data(ticker, period='1y'):
         if df.empty:
             return None
         df.reset_index(inplace=True)
+
+        # Convert 'Close' to numeric, handling errors by coercing to NaN
+        # This replaces any non-numeric values with NaN
+        df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
+
+        # Drop rows where 'Close' is NaN after conversion, as they can't be used for calculations
+        # Using inplace=True modifies the DataFrame directly
+        df.dropna(subset=['Close'], inplace=True)
+
         if not pd.api.types.is_datetime64_any_dtype(df['Date']):
             df['Date'] = pd.to_datetime(df['Date'])
         return df
@@ -42,6 +51,8 @@ def compute_indicators(df, sma_windows=[50, 200], rsi_window=14, bb_window=20):
     df['Bollinger_Std'] = df['Close'].rolling(bb_window).std()
     df['Upper_Band'] = df['Bollinger_Middle'] + 2 * df['Bollinger_Std']
     df['Lower_Band'] = df['Bollinger_Middle'] - 2 * df['Bollinger_Std']
+    # You might also want to drop NaNs after Bollinger Band calculations
+    df.dropna(subset=['Bollinger_Middle', 'Upper_Band', 'Lower_Band'], inplace=True)
 
     # ATR
     df['High_Low'] = df['High'] - df['Low']
@@ -121,6 +132,12 @@ def generate_bollinger_reversal_signals(df, bb_window=20):
 
         # Check for NaN in band values to prevent comparison errors
         if pd.isna(lower) or pd.isna(upper):
+            continue
+
+        # Ensure 'price', 'lower', and 'upper' are scalar before comparison
+        if not isinstance(price, (int, float)) or not isinstance(lower, (int, float)) or not isinstance(upper, (int, float)):
+            # Handle cases where values are not scalars (e.g., log a warning, skip the iteration)
+            print(f"Warning: Non-scalar value encountered at index {i}. Price: {price}, Lower: {lower}, Upper: {upper}")
             continue
 
         # Generate buy signal if price touches or dips below lower band
