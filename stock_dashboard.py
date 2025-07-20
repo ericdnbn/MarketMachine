@@ -113,15 +113,15 @@ def generate_rsi_signals(df, rsi_lower=30, rsi_upper=70):
 def generate_bollinger_reversal_signals(df):
     br_signals = []
     for i in range(1, len(df)):
-        # Skip if bands are NaN at index i
+        # Skip if Bollinger Bands are NaN at i
         if pd.isna(df['Lower_Band'].iloc[i]) or pd.isna(df['Upper_Band'].iloc[i]):
             continue
         price = df['Close'].iloc[i]
         date = df['Date'].iloc[i]
-        # Price touching or crossing lower band -> buy
+        # Buy if price touches or crosses below Lower Band
         if price <= df['Lower_Band'].iloc[i]:
             br_signals.append(('buy', date))
-        # Price touching or crossing upper band -> sell
+        # Sell if price touches or crosses above Upper Band
         elif price >= df['Upper_Band'].iloc[i]:
             br_signals.append(('sell', date))
     return br_signals
