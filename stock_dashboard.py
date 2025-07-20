@@ -23,7 +23,8 @@ def get_stock_data(ticker, period='1y'):
         if not pd.api.types.is_datetime64_any_dtype(df['Date']):
             df['Date'] = pd.to_datetime(df['Date'])
         return df
-    except:
+    except Exception as e:
+        print(f"Error fetching data for {ticker}: {e}")
         return None
 
 def compute_indicators(df, sma_windows=[50, 200], rsi_window=14, bb_window=20):
