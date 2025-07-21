@@ -10,21 +10,43 @@ def get_stock_data(ticker, period):
     try:
         df = yf.download(ticker, period=period)
         print(f"Attempted fetch for {ticker} with period {period}")
-        print(f"Data shape: {df.shape}")
-        if df.empty:
-            print("Data is empty.")
+        print(f"Type of fetched object: {type(df)}")
+        if not isinstance(df, pd.DataFrame):
+            print("Fetched data is NOT a DataFrame. Check the API response.")
             return None
+        print(f"Data shape: {df.shape}")
+
+        if df.empty:
+            print("Data is empty (shape[0]==0).")
+            return None
+
+        # Reset index so Date is a column
         df.reset_index(inplace=True)
+
+        # Confirm 'Close' exists
+        if 'Close' not in df.columns:
+            print("Column 'Close' not found in data.")
+            return None
+
+        # Convert 'Close' to numeric, coercing errors
         df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
+        # Drop NaN in 'Close'
         df.dropna(subset=['Close'], inplace=True)
+
+        # Check if 'Date' column exists, then convert to datetime
+        if 'Date' not in df.columns:
+            print("No 'Date' column found after resetting index.")
+            return None
         if not pd.api.types.is_datetime64_any_dtype(df['Date']):
             df['Date'] = pd.to_datetime(df['Date'])
+
         print(f"Fetched {len(df)} rows after cleaning.")
         return df
-    except Exception:
-        print(f"Error fetching data for {ticker}")
-        traceback.print_exc()  # This prints the full traceback
+
+    except Exception as e:
+        print(f"Error fetching data for {ticker}: {e}")
         return None
+
 
 def compute_indicators(df, sma_windows=[50, 200], rsi_window=14, bb_window=20):
     if df is None:
