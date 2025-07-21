@@ -3,6 +3,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import traceback
 
 @st.cache_data
 def get_stock_data(ticker, period):
