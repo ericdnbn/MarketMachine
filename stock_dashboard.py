@@ -5,9 +5,9 @@ import numpy as np
 import plotly.graph_objects as go
 
 @st.cache_data
-def get_stock_data(ticker, period='1y', interval='1d'):
+def get_stock_data(ticker, period):
     try:
-        df = yf.download(ticker, period=period, interval=interval, auto_adjust=True)
+        df = yf.download(ticker, period=period)
         if df.empty:
             return None
         df.reset_index(inplace=True)
@@ -177,7 +177,7 @@ period = st.selectbox("Select period", ['1y', '2y', '5y'], index=0)
 
 if st.button("Fetch Data") and ticker_input.strip():
     # Fetch data
-    data = get_stock_data(ticker_input.strip(), period=period, interval='1d')
+    data = get_stock_data(ticker_input.strip(), period=period)
     if data is None:
         st.error("Failed to fetch data. Check the ticker symbol.")
     else:
