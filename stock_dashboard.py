@@ -29,9 +29,9 @@ def get_stock_data(ticker, period):
             return None
 
         # Convert 'Close' to numeric, coercing errors
-        df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
+        ###df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
         # Drop NaN in 'Close'
-        df.dropna(subset=['Close'], inplace=True)
+        ###df.dropna(subset=['Close'], inplace=True)
 
         # Check if 'Date' column exists, then convert to datetime
         if 'Date' not in df.columns:
@@ -72,8 +72,10 @@ def compute_indicators(df, sma_windows=[50, 200], rsi_window=14, bb_window=20):
     df['Bollinger_Std'] = df['Close'].rolling(bb_window).std()
     df['Upper_Band'] = df['Bollinger_Middle'] + 2 * df['Bollinger_Std']
     df['Lower_Band'] = df['Bollinger_Middle'] - 2 * df['Bollinger_Std']
+    # Check column names before dropna
+    print(df.columns)
     # You might also want to drop NaNs after Bollinger Band calculations
-    df.dropna(subset=['Bollinger_Middle', 'Upper_Band', 'Lower_Band'], inplace=True)
+    df.dropna(subset=[('Bollinger_Middle', ''), ('Upper_Band', ''), ('Lower_Band', '')], inplace=True)
 
     # ATR
     df['High_Low'] = df['High'] - df['Low']
@@ -172,6 +174,22 @@ def generate_bollinger_reversal_signals(df, bb_window=20):
 
 def generate_breakout_signals(df, window=20):
     break_signals = []
+
+     # Check if df has MultiIndex columns and flatten if necessary for 'High' and 'Low'
+    # Assuming the structure is ('High', 'AAPL') or ('High', '')
+    if isinstance(df.columns, pd.MultiIndex):
+        # Select the relevant columns as single-level Series for calculations
+        # Adjust this based on how 'High' and 'Low' are actually structured in your MultiIndex
+        # If it's ('High', 'AAPL'):
+        high_series = df[('High', 'AAPL')] 
+        low_series = df[('Low', 'AAPL')]
+        # If it's just ('High', ''):
+        # high_series = df[('High', '')]
+        # low_series = df[('Low', '')]
+    else:
+        high_series = df['High']
+        low_series = df['Low']
+
     max_last = df['High'].rolling(window).max()
     min_last = df['Low'].rolling(window).min()
     for i in range(window, len(df)):
