@@ -5,9 +5,9 @@ import numpy as np
 import plotly.graph_objects as go
 
 @st.cache_data
-def get_stock_data(ticker, period='1y'):
+def get_stock_data(ticker, period='1y', interval='1d'):
     try:
-        df = yf.download(ticker, period=period, interval='1d')
+        df = yf.download(ticker, period=period, interval=interval, auto_adjust=True)
         if df.empty:
             return None
         df.reset_index(inplace=True)
