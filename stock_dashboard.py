@@ -15,17 +15,15 @@ def get_stock_data(ticker, period):
             print("Data is empty.")
             return None
         df.reset_index(inplace=True)
-
-        # Convert 'Close' to numeric
         df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
         df.dropna(subset=['Close'], inplace=True)
-
         if not pd.api.types.is_datetime64_any_dtype(df['Date']):
             df['Date'] = pd.to_datetime(df['Date'])
         print(f"Fetched {len(df)} rows after cleaning.")
         return df
-    except Exception as e:
-        print(f"Error fetching data for {ticker}: {e}")
+    except Exception:
+        print(f"Error fetching data for {ticker}")
+        traceback.print_exc()  # This prints the full traceback
         return None
 
 def compute_indicators(df, sma_windows=[50, 200], rsi_window=14, bb_window=20):
