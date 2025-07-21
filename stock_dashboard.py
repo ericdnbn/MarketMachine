@@ -129,6 +129,7 @@ def generate_macd_signals(df):
             macd_signals.append(('sell', df['Date'].iloc[i]))
     return macd_signals
 
+
 def generate_rsi_signals(df, rsi_lower=30, rsi_upper=70):
     rsi_signals = []
     for i in range(1, len(df)):
@@ -145,22 +146,41 @@ def generate_rsi_signals(df, rsi_lower=30, rsi_upper=70):
 
 def generate_bollinger_reversal_signals(df, bb_window=20):
     br_signals = []
+
+    # --- Pre-computation and Handling MultiIndex (Crucial) ---
+    # Determine if df has MultiIndex columns.
+    # If so, select the specific Series using the tuple index.
+    # If not, use the direct column name.
+
+    if isinstance(df.columns, pd.MultiIndex):
+        lower_band_series = df[('Lower_Band', '')] # Assuming empty string for second level of Bollinger bands
+        upper_band_series = df[('Upper_Band', '')] # Assuming empty string for second level of Bollinger bands
+        close_series = df[('Close', 'AAPL')]      # Assuming 'Close' has 'AAPL' as second level
+        date_series = df[('Date', '')]            # Assuming 'Date' has an empty string as second level
+    else:
+        lower_band_series = df['Lower_Band']
+        upper_band_series = df['Upper_Band']
+        close_series = df['Close']
+        date_series = df['Date']
+
     # Start from index = bb_window to avoid NaNs in Bollinger Bands
     for i in range(bb_window, len(df)):
-        # Safely access the scalar values for bands and close price
-        lower = df['Lower_Band'].iloc[i]
-        upper = df['Upper_Band'].iloc[i]
-        price = df['Close'].iloc[i]
-        date = df['Date'].iloc[i]
+        # Safely access the scalar values for bands and close price using .item()
+        # .item() converts a single-element Series to its scalar value.
+        lower = lower_band_series.iloc[i].item()
+        upper = upper_band_series.iloc[i].item()
+        price = close_series.iloc[i].item()
+        date = date_series.iloc[i].item()
 
         # Check for NaN in band values to prevent comparison errors
         if pd.isna(lower) or pd.isna(upper):
             continue
 
-        # Ensure 'price', 'lower', and 'upper' are scalar before comparison
+        # The isinstance checks are now redundant since .item() ensures scalars,
+        # but you can keep them for extra safety if you prefer.
+        # However, they might become unreachable if .item() consistently returns scalars.
         if not isinstance(price, (int, float)) or not isinstance(lower, (int, float)) or not isinstance(upper, (int, float)):
-            # Handle cases where values are not scalars (e.g., log a warning, skip the iteration)
-            print(f"Warning: Non-scalar value encountered at index {i}. Price: {price}, Lower: {lower}, Upper: {upper}")
+            print(f"Warning: Non-scalar value encountered at index {i}. This should not happen after using .item(). Price: {price}, Lower: {lower}, Upper: {upper}")
             continue
 
         # Generate buy signal if price touches or dips below lower band
@@ -169,34 +189,36 @@ def generate_bollinger_reversal_signals(df, bb_window=20):
         # Generate sell signal if price touches or exceeds upper band
         elif price >= upper:
             br_signals.append(('sell', date))
+            
     return br_signals
 
 
 def generate_breakout_signals(df, window=20):
     break_signals = []
 
-     # Check if df has MultiIndex columns and flatten if necessary for 'High' and 'Low'
-    # Assuming the structure is ('High', 'AAPL') or ('High', '')
     if isinstance(df.columns, pd.MultiIndex):
         # Select the relevant columns as single-level Series for calculations
-        # Adjust this based on how 'High' and 'Low' are actually structured in your MultiIndex
-        # If it's ('High', 'AAPL'):
         high_series = df[('High', 'AAPL')] 
         low_series = df[('Low', 'AAPL')]
-        # If it's just ('High', ''):
-        # high_series = df[('High', '')]
-        # low_series = df[('Low', '')]
+        close_series = df[('Close', 'AAPL')] # Need to extract 'Close' similarly
+        date_series = df[('Date', '')] # Assuming 'Date' is also a MultiIndex like this
+
     else:
         high_series = df['High']
         low_series = df['Low']
+        close_series = df['Close']
+        date_series = df['Date'] # Assuming 'Date' is a regular column
 
     max_last = high_series.rolling(window).max()
     min_last = low_series.rolling(window).min()
+
     for i in range(window, len(df)):
-        date = df['Date'].iloc[i]
-        price = df['Close'].iloc[i]
-        high = max_last.iloc[i]
-        low = min_last.iloc[i]
+        # Explicitly extract the scalar value using .item()
+        date = date_series.iloc[i].item() 
+        price = close_series.iloc[i].item() 
+        high = max_last.iloc[i].item()
+        low = min_last.iloc[i].item()
+
         # Break above recent high
         if price > high:
             break_signals.append(('buy', date))
