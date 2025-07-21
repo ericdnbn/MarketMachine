@@ -190,8 +190,8 @@ def generate_breakout_signals(df, window=20):
         high_series = df['High']
         low_series = df['Low']
 
-    max_last = df['High'].rolling(window).max()
-    min_last = df['Low'].rolling(window).min()
+    max_last = high_series.rolling(window).max()
+    min_last = low_series.rolling(window).min()
     for i in range(window, len(df)):
         date = df['Date'].iloc[i]
         price = df['Close'].iloc[i]
