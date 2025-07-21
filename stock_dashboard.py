@@ -177,7 +177,7 @@ period = st.selectbox("Select period", ['1y', '2y', '5y'], index=0)
 
 if st.button("Fetch Data") and ticker_input.strip():
     # Fetch data
-    data = get_stock_data(ticker_input.strip(), period=period)
+    data = get_stock_data(ticker=ticker_input.strip(), period=period)
     if data is None:
         st.error("Failed to fetch data. Check the ticker symbol.")
     else:
