@@ -7,21 +7,21 @@ import plotly.graph_objects as go
 @st.cache_data
 def get_stock_data(ticker, period):
     try:
-        df = yf.download(ticker=ticker, period=period)
+        df = yf.download(ticker, period=period)
+        print(f"Attempted fetch for {ticker} with period {period}")
+        print(f"Data shape: {df.shape}")
         if df.empty:
+            print("Data is empty.")
             return None
         df.reset_index(inplace=True)
 
-        # Convert 'Close' to numeric, handling errors by coercing to NaN
-        # This replaces any non-numeric values with NaN
+        # Convert 'Close' to numeric
         df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
-
-        # Drop rows where 'Close' is NaN after conversion, as they can't be used for calculations
-        # Using inplace=True modifies the DataFrame directly
         df.dropna(subset=['Close'], inplace=True)
 
         if not pd.api.types.is_datetime64_any_dtype(df['Date']):
             df['Date'] = pd.to_datetime(df['Date'])
+        print(f"Fetched {len(df)} rows after cleaning.")
         return df
     except Exception as e:
         print(f"Error fetching data for {ticker}: {e}")
@@ -177,7 +177,7 @@ period = st.selectbox("Select period", ['1y', '2y', '5y'], index=0)
 
 if st.button("Fetch Data") and ticker_input.strip():
     # Fetch data
-    data = get_stock_data(ticker=ticker_input.strip(), period=period)
+    data = get_stock_data(ticker_input.strip(), period=period)
     if data is None:
         st.error("Failed to fetch data. Check the ticker symbol.")
     else:
