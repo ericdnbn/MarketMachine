@@ -42,11 +42,10 @@ def get_stock_data(ticker, period):
 
         print(f"Fetched {len(df)} rows after cleaning.")
         return df
-
-    except Exception as e:
-        print(f"Error fetching data for {ticker}: {e}")
+    except Exception:
+        print(f"Error fetching data for {ticker}")
+        traceback.print_exc()  # This prints the full traceback
         return None
-
 
 def compute_indicators(df, sma_windows=[50, 200], rsi_window=14, bb_window=20):
     if df is None:
