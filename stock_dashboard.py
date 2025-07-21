@@ -21,7 +21,7 @@ def get_stock_data(ticker, period):
             return None
 
         # Reset index so Date is a column
-        df.reset_index(inplace=True)
+        ###df.reset_index(inplace=True)
 
         # Confirm 'Close' exists
         if 'Close' not in df.columns:
@@ -34,11 +34,11 @@ def get_stock_data(ticker, period):
         ###df.dropna(subset=['Close'], inplace=True)
 
         # Check if 'Date' column exists, then convert to datetime
-        if 'Date' not in df.columns:
-            print("No 'Date' column found after resetting index.")
-            return None
-        if not pd.api.types.is_datetime64_any_dtype(df['Date']):
-            df['Date'] = pd.to_datetime(df['Date'])
+        ###if 'Date' not in df.columns:
+            ###print("No 'Date' column found after resetting index.")
+            ###return None
+        ###if not pd.api.types.is_datetime64_any_dtype(df['Date']):
+            ###df['Date'] = pd.to_datetime(df['Date'])
 
         print(f"Fetched {len(df)} rows after cleaning.")
         return df
@@ -97,6 +97,9 @@ def compute_indicators(df, sma_windows=[50, 200], rsi_window=14, bb_window=20):
 def generate_ma_crossover_signals(df, short_window=50, long_window=200):
     ma_signals = []
     for i in range(1, len(df)):
+        # Get the date from the DataFrame's index
+        date = df.index[i]  # Corrected line
+
         if pd.isna(df[f'SMA_{short_window}'].iloc[i]) or pd.isna(df[f'SMA_{long_window}'].iloc[i]):
             continue
         prev_short = df[f'SMA_{short_window}'].iloc[i-1]
@@ -105,82 +108,101 @@ def generate_ma_crossover_signals(df, short_window=50, long_window=200):
         curr_long = df[f'SMA_{long_window}'].iloc[i]
         # Cross upward
         if prev_short < prev_long and curr_short > curr_long:
-            ma_signals.append(('buy', df['Date'].iloc[i]))
+            ma_signals.append(('buy', date))
         # Cross downward
         elif prev_short > prev_long and curr_short < curr_long:
-            ma_signals.append(('sell', df['Date'].iloc[i]))
+            ma_signals.append(('sell', date))
     return ma_signals
 
 
 def generate_macd_signals(df):
     macd_signals = []
+    # Access MACD and Signal Line Series based on MultiIndex or flattened names
+    if isinstance(df.columns, pd.MultiIndex):
+        try:
+            macd_series = df[('MACD', '')]
+            signal_series = df[('Signal_Line', '')]
+        except KeyError:
+            # Fallback if specific MultiIndex tuple isn't found
+            macd_series = df['MACD_']  # Assuming flattened name
+            signal_series = df['Signal_Line_'] # Assuming flattened name
+    else:
+        macd_series = df['MACD']
+        signal_series = df['Signal_Line']
+
     for i in range(1, len(df)):
-        if pd.isna(df['MACD'].iloc[i]) or pd.isna(df['Signal_Line'].iloc[i]):
+        # Get the date from the DataFrame's index
+        date = df.index[i]  # Corrected line
+
+        if pd.isna(macd_series.iloc[i]) or pd.isna(signal_series.iloc[i]):
             continue
-        prev_macd = df['MACD'].iloc[i - 1]
-        prev_signal = df['Signal_Line'].iloc[i - 1]
-        curr_macd = df['MACD'].iloc[i]
-        curr_signal = df['Signal_Line'].iloc[i]
+        prev_macd = macd_series.iloc[i - 1]
+        prev_signal = signal_series.iloc[i - 1]
+        curr_macd = macd_series.iloc[i]
+        curr_signal = signal_series.iloc[i]
+
         # Buy
         if prev_macd < prev_signal and curr_macd > curr_signal:
-            macd_signals.append(('buy', df['Date'].iloc[i]))
+            macd_signals.append(('buy', date))
         # Sell
         elif prev_macd > prev_signal and curr_macd < curr_signal:
-            macd_signals.append(('sell', df['Date'].iloc[i]))
+            macd_signals.append(('sell', date))
     return macd_signals
 
 
 def generate_rsi_signals(df, rsi_lower=30, rsi_upper=70):
     rsi_signals = []
     for i in range(1, len(df)):
+        # Get the date from the DataFrame's index
+        date = df.index[i]  # Corrected line
+
         if pd.isna(df['RSI_14'].iloc[i]):
             continue
         if df['RSI_14'].iloc[i-1] > rsi_upper and df['RSI_14'].iloc[i] < rsi_upper:
             # RSI crosses below overbought -> potential sell
-            rsi_signals.append(('sell', df['Date'].iloc[i]))
+            rsi_signals.append(('sell', date))
         elif df['RSI_14'].iloc[i-1] < rsi_lower and df['RSI_14'].iloc[i] > rsi_lower:
             # RSI crosses above oversold -> potential buy
-            rsi_signals.append(('buy', df['Date'].iloc[i]))
+            rsi_signals.append(('buy', date))
     return rsi_signals
 
 
 def generate_bollinger_reversal_signals(df, bb_window=20):
     br_signals = []
 
-    # --- Pre-computation and Handling MultiIndex (Crucial) ---
-    # Determine if df has MultiIndex columns.
-    # If so, select the specific Series using the tuple index.
-    # If not, use the direct column name.
+    # --- Pre-select Series to avoid repeated MultiIndex lookup in loop ---
+    # This assumes your DataFrame's columns are structured like:
+    # ('Close', 'AAPL'), ('Lower_Band', ''), ('Upper_Band', '')
+    # Adjust the second element of the tuple if your MultiIndex is different
+    # (e.g., if you've flattened the names, use 'Lower_Band_', 'Upper_Band_', 'Close_AAPL')
+    try:
+        lower_band_series = df[('Lower_Band', '')]
+        upper_band_series = df[('Upper_Band', '')]
+        close_series = df[('Close', 'AAPL')]
+    except KeyError as e:
+        print(f"Error accessing MultiIndex columns: {e}. Check column names and structure.")
+        print(f"Available columns: {df.columns}")
+        return br_signals # Exit if columns can't be found
 
-    if isinstance(df.columns, pd.MultiIndex):
-        lower_band_series = df[('Lower_Band', '')] # Assuming empty string for second level of Bollinger bands
-        upper_band_series = df[('Upper_Band', '')] # Assuming empty string for second level of Bollinger bands
-        close_series = df[('Close', 'AAPL')]      # Assuming 'Close' has 'AAPL' as second level
-        date_series = df[('Date', '')]            # Assuming 'Date' has an empty string as second level
-    else:
-        lower_band_series = df['Lower_Band']
-        upper_band_series = df['Upper_Band']
-        close_series = df['Close']
-        date_series = df['Date']
 
-    # Start from index = bb_window to avoid NaNs in Bollinger Bands
+    # Start from index = bb_window to avoid NaNs from rolling calculations and ensure window size is met
     for i in range(bb_window, len(df)):
-        # Safely access the scalar values for bands and close price using .item()
-        # .item() converts a single-element Series to its scalar value.
-        lower = lower_band_series.iloc[i].item()
-        upper = upper_band_series.iloc[i].item()
-        price = close_series.iloc[i].item()
-        date = date_series.iloc[i].item()
+        # Get the date directly from the DataFrame's index
+        date = df.index[i] 
 
-        # Check for NaN in band values to prevent comparison errors
-        if pd.isna(lower) or pd.isna(upper):
+        # Access values as scalars. Use .iloc[i] followed by [0] to extract the value
+        # from a single-element Series if that's what .iloc[i] returns.
+        lower = lower_band_series.iloc[i][0]
+        upper = upper_band_series.iloc[i][0]
+        price = close_series.iloc[i][0]
+        
+        # Check for NaN in values to prevent comparison errors
+        if pd.isna(price) or pd.isna(lower) or pd.isna(upper):
             continue
 
-        # The isinstance checks are now redundant since .item() ensures scalars,
-        # but you can keep them for extra safety if you prefer.
-        # However, they might become unreachable if .item() consistently returns scalars.
+        # This isinstance check is good for debugging, but should ideally not be hit now.
         if not isinstance(price, (int, float)) or not isinstance(lower, (int, float)) or not isinstance(upper, (int, float)):
-            print(f"Warning: Non-scalar value encountered at index {i}. This should not happen after using .item(). Price: {price}, Lower: {lower}, Upper: {upper}")
+            print(f"ERROR: Still non-scalar after .iloc[i][0] at index {i}. Price: {price}, Lower: {lower}, Upper: {upper}")
             continue
 
         # Generate buy signal if price touches or dips below lower band
@@ -192,7 +214,6 @@ def generate_bollinger_reversal_signals(df, bb_window=20):
             
     return br_signals
 
-
 def generate_breakout_signals(df, window=20):
     break_signals = []
 
@@ -201,20 +222,19 @@ def generate_breakout_signals(df, window=20):
         high_series = df[('High', 'AAPL')] 
         low_series = df[('Low', 'AAPL')]
         close_series = df[('Close', 'AAPL')] # Need to extract 'Close' similarly
-        date_series = df[('Date', '')] # Assuming 'Date' is also a MultiIndex like this
 
     else:
         high_series = df['High']
         low_series = df['Low']
         close_series = df['Close']
-        date_series = df['Date'] # Assuming 'Date' is a regular column
+
 
     max_last = high_series.rolling(window).max()
     min_last = low_series.rolling(window).min()
 
     for i in range(window, len(df)):
-        # Explicitly extract the scalar value using .item()
-        date = date_series.iloc[i].item() 
+        # Get the date from the DataFrame's index
+        date = df.index[i]  # Corrected line
         price = close_series.iloc[i].item() 
         high = max_last.iloc[i].item()
         low = min_last.iloc[i].item()
